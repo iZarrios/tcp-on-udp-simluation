@@ -1,7 +1,9 @@
 import socket
 import random
 import pickle
+import threading
 from tcp_packet import TCPPacket
+
 
 
 DATA_DIVIDE_LENGTH = 1024
@@ -14,121 +16,160 @@ FIRST = 0
 MIN_SEQUENCE_NUMBER = 0
 MAX_SEQUENCE_NUMBER = 2**32 - 1
 
+def print_packet(packet):
+    packet_type = packet.packet_type()
+    if packet_type == "SYN":
+        print("\033[43m" + str(packet) + "\033[0m")  # yellow background
+    elif packet_type == "ACK":
+        print("\033[44m" + str(packet) + "\033[0m")  # blue background
+    elif packet_type == "SYN-ACK":
+        print("\033[45m" + str(packet) + "\033[0m")  # magenta background
+    elif packet_type == "FIN":
+        print("\033[41m" + str(packet) + "\033[0m")  # red background
+    elif packet_type == "FIN-ACK":
+        print("\033[41;1m" + str(packet) + "\033[0m")  # red bold background
+    else:
+        print(str(packet))  # default color
 
 class TCPOverUDPSocket:
-    def __init__(self,timeout=5) -> None:
+    def __init__(self) -> None:
+        self.status = 1  # 1 = open , 0 = closed
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Reuse address
-        self.socket.settimeout(timeout)  # Timeout for receiving data
 
-        self.connection = None
+        self.connections = {}
+        self.connection_queue = []
+        self.connection_lock = threading.Lock()
+        self.queue_lock = threading.Lock()
+        # each condition will have a dictionary of an address and it's corresponding packet.
+        self.packets_received = {"SYN": {}, "ACK": {}, "SYN-ACK": {}, "DATA or FIN": {}, "FIN-ACK": {}}
 
-        self.seq_num = random.randint(0, MAX_SEQUENCE_NUMBER)  # Initial sequence number
-        self.ack_num = 0  # Initial ack number
-
-        self.buffer = []  # Buffer for received packets
-        self.last_packet_received = None  # Last packet received from the peer
-        self.last_packet_sent = None  # Last packet sent to the peer
-        self.last_packet_acked = None  # Last packet acknowledged by the peer
-        self.send_queue = []  # Queue of packets to send
-        self.recv_queue = []  # Queue of received data
 
         self.address = None  # Address of the peer
         self.port = None  # Port of the peer
 
-    def bind(self, address,port):
-        self.socket.bind((address,port))
+    def __repr__(self):
+        return "TCP()"
 
-    def listen(self, max_connections=1):
-        self.socket.listen(max_connections)
+    def __str__(self):
+        return f"Connection status: {self.status}\nSocket: {self.socket}\nAddress: {self.address}\nPort: {self.port} \
+        \nConnections: {self.connections}\nConnection queue: {self.connection_queue}"
 
-    def send_syn(self):
-        packet = TCPPacket()
-        packet.set_flags(syn=True)
-        packet.seq = self.seq_num
-        packet.ack = self.ack_num
-        self.last_packet_sent = packet
-        self.send_queue.append(packet)
-        self.seq_num += 1
+    def bind(self, address):
+        self.address = address[0]
+        self.port = address[1]
+        self.socket.bind(address)
 
-    def recv_syn_ack(self):
-        packet = self.recv_packet()
-        if packet.flag_syn == 1 and packet.flag_ack == 1:
-            self.last_packet_received = packet
-            self.ack_num = packet.seq + 1
-            self.seq_num += 1
-        else:
-            raise Exception("Received packet is not a SYN-ACK packet")
-    def recv_packet(self):
-        try:
-            # data, address = self.socket.recvfrom(DATA_LENGTH)
-            data, _= self.socket.recvfrom(DATA_LENGTH)
-            packet = TCPPacket()
-            packet = pickle.loads(data)
-            self.last_packet_received = packet
-            return packet
-        except socket.timeout:
-            raise Exception("Timeout")
+    def settimeout(self, timeout):
+        self.socket.settimeout(timeout)
 
-    def send_ack(self):
-        packet = TCPPacket()
-        packet.set_flags(ack=True)
-        packet.seq = self.seq_num
-        packet.ack = self.ack_num
-        self.last_packet_sent = packet
-        self.send_queue.append(packet)
-        self.seq_num += 1
+    def send(self, data):
+        self.socket.sendto(data, (self.address, self.port))
 
-    def connect(self, address, port):
-        self.address = address
-        self.port = port
-        self.seq_num = random.randint(0, MAX_SEQUENCE_NUMBER)
-        self.ack_num = 0
-        self.send_syn()
-        self.recv_syn_ack()
-        self.send_ack()
+        # wait ack
+        # res = self.__wait_for_ack(handshake=False)
+        # # if ack not received, resend packet
+        #     self.socket.sendto(data, (self.address, self.port))
+        #     res = self.__wait_for_ack(handshake=False)
+        #             return
+        # self.socket.close()
+        # exit(1)
 
-    def accept(self):
-        self.connection, addr = self.socket.accept()
-        self.address = addr[0]
-        self.port = addr[1]
-        self.seq_num = random.randint(0, MAX_SEQUENCE_NUMBER)
-        self.ack_num = 0
-        self.recv_syn_ack()
-        self.send_syn()
-        self.recv_ack()
 
-        return self.connection, addr
 
-    def recv_ack(self):
-        packet = self.recv_packet()
-        if packet.flag_ack == 1:
-            self.last_packet_received = packet
-            self.ack_num = packet.seq + 1
-        else:
-            raise Exception("Received packet is not an ACK packet")
+    def recvfrom(self, size):
+        data, address = self.socket.recvfrom(size)
+        pkt = TCPPacket.from_bytes(data)
+        print_packet(pkt)
+        return data, address
+
+    def sendto(self, data, address):
+        self.socket.sendto(data, address)
+
     def close(self):
         self.socket.close()
 
-    def send(self,data):
-        chunks = [data[i:i + DATA_LENGTH] for i in range(0, len(data), DATA_LENGTH)]
-        # Send packets with PSH flag for each chunk
-        for _, chunk in enumerate(chunks):
-            packet = self.make_packet(data=chunk, ack=True, psh=True)
-            self.send_packet(packet)
+    def connect(self,address):
+        # Send SYN
+        self.address = address[0]
+        self.port = address[1]
+        self.__send_syn()
+        # # Wait for SYN-ACK
+        self.__wait_for_syn_ack()
+        # # Send ACK
+        self.__send_ack()
+        # # Connection established
+        self.status = 0
 
-    def make_packet(self, data="", ack=False, syn=False, fin=False):
-        packet = TCPPacket()
-        packet.set_flags(ack=ack, syn=syn, fin=fin)
-        packet.seq = self.seq_num
-        packet.ack = self.ack_num
-        packet.data = data
-        return packet
 
-    def send_packet(self, packet):
-        """Send a TCP packet over a UDP socket"""
-        # Serialize the packet using pickle
-        serialized_packet = pickle.dumps(packet)
+    def __send_syn(self):
+        global cnt
+        syn = TCPPacket()
+        syn.data = "SYN"
+        syn.set_flags(syn=True)
+        self.sendto(syn.to_bytes(syn), (self.address, self.port))
 
-        # Send the packet with a fixed size of SENT_SIZE
-        self.socket.sendto(serialized_packet.ljust(SENT_SIZE, b'\0'), self.connection)
+    def __send_ack(self):
+        ack = TCPPacket()
+        ack.data = "ACK"
+        ack.set_flags(ack=True)
+        self.sendto(ack.to_bytes(ack), (self.address, self.port))
+
+    def __wait_for_syn_ack(self):
+        while True:
+            try:
+                data, address = self.recvfrom(SENT_SIZE)
+                pkt = TCPPacket.from_bytes(data)
+                print_packet(pkt)
+                if pkt.packet_type() == "SYN-ACK":
+                    self.port = address[1]
+                    return
+            except socket.timeout:
+                print("Timeout waiting for SYN-ACK")
+                exit(1)
+    def listen(self):
+        pass
+
+    def accept(self):
+        # Wait for SYN
+        self.__wait_for_syn()
+        # Send SYN-ACK
+        self.__send_syn_ack()
+        # Wait for ACK
+        self.__wait_for_ack()
+
+        # Connection established
+        self.status = 0
+        return self.address, self.port
+
+    def __wait_for_syn(self):
+        while True:
+            try:
+                data, address = self.recvfrom(SENT_SIZE)
+                pkt = TCPPacket.from_bytes(data)
+                if pkt.packet_type() == "SYN":
+                    print_packet(pkt)
+                    self.port = address[1]
+                    return
+            except socket.timeout:
+                print("Timeout waiting for SYN")
+
+    def __send_syn_ack(self):
+        syn_ack = TCPPacket()
+        syn_ack.data = "SYN-ACK"
+        syn_ack.set_flags(syn=True, ack=True)
+        self.sendto(syn_ack.to_bytes(syn_ack), (self.address, self.port))
+
+    def __wait_for_ack(self,handshake=True):
+        while True:
+            try:
+                data, _= self.recvfrom(SENT_SIZE)
+                pkt = TCPPacket.from_bytes(data)
+                print_packet(pkt)
+                if pkt.packet_type() == "ACK":
+                    return "YES"
+            except socket.timeout:
+                if not handshake:
+                    return "NO"
+                print("Timeout waiting for ACK")
+                exit(1)
