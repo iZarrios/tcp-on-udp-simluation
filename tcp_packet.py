@@ -1,5 +1,5 @@
 import random
-from pickle import loads
+from pickle import loads, dumps
 
 
 DATA_DIVIDE_LENGTH = 1024
@@ -9,29 +9,39 @@ SENT_SIZE = TCP_PACKET_SIZE + DATA_LENGTH + 5000  # Pickled objects take a lot o
 LAST_CONNECTION = -1
 FIRST = 0
 
+
+cnt = 0
+import threading
+lock = threading.Lock()
+
 class TCPPacket:
     SMALLEST_STARTING_SEQ = 0
     HIGHEST_STARTING_SEQ = 2**32 - 1
     def __init__(self): 
-            self.seq = TCPPacket.gen_starting_seq_num()
-            self.ack = 0
-            self.data_offset = 0
-            self.reserved_field = 0
-            self.flag_ns = 0
-            self.flag_cwr = 0
-            self.flag_ece = 0
-            self.flag_urg = 0
-            self.flag_ack = 0
-            self.flag_psh = 0
-            self.flag_rst = 0
-            self.flag_syn = 0
-            self.flag_fin = 0
-            self.window_size = 0
-            self.checksum = 0
-            self.urgent_pointer = 0
-            self.options = 0
-            self.padding = 0
-            self.data = ''
+        global cnt
+        # self.seq = TCPPacket.gen_starting_seq_num()
+        lock.acquire()
+        self.seq = cnt
+        self.ack = cnt
+        cnt +=1
+        lock.release()
+        self.data_offset = 0
+        self.reserved_field = 0
+        self.flag_ns = 0
+        self.flag_cwr = 0
+        self.flag_ece = 0
+        self.flag_urg = 0
+        self.flag_ack = 0
+        self.flag_psh = 0
+        self.flag_rst = 0
+        self.flag_syn = 0
+        self.flag_fin = 0
+        self.window_size = 0
+        self.checksum = 0
+        self.urgent_pointer = 0
+        self.options = 0
+        self.padding = 0
+        self.data = ''
 
     def __repr__(self):
         return "TCPpacket()"
@@ -81,3 +91,6 @@ class TCPPacket:
     @staticmethod
     def from_bytes(byte_string) -> 'TCPPacket':
         return loads(byte_string)
+    @staticmethod
+    def to_bytes(packet) -> bytes:
+        return dumps(packet)
