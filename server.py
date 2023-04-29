@@ -2,8 +2,9 @@ import socket
 from dotenv import load_dotenv
 import threading
 import os
+import pickle as pkl
 from tcp_packet import TCPPacket
-from udp_tcp_socket import TCPOverUDPSocket, pickle
+from udp_tcp_socket import TCPOverUDPSocket
 
 load_dotenv()
 port = int(os.getenv("PORT",8080))
@@ -36,7 +37,7 @@ def handle_client(conn, addr):
             data = conn.recvfrom(1024)
             if not data:
                 break
-            print(pickle.loads(data[0]))
+            print(pkl.loads(data[0]))
         except socket.timeout:
             print("Timeout")
 
