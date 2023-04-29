@@ -1,5 +1,6 @@
 import socket
 import random
+import time
 import pickle as pkl
 import threading
 from tcp_packet import TCPPacket
@@ -76,27 +77,38 @@ class TCPOverUDPSocket:
         # exit(1)
     def rcv(self):
         # wait data
-        # res = self.__wait_for_data()
-        # # if data not received, resend ack
-        #     self.__send_ack()
-        #     res = self.__wait_for_data()
-        #             return
-        # self.socket.close()
-        # exit(1)
-        pass
+        res = self.__wait_for_data()
+        # if data received, send ack
+        self.__send_ack()
+        print("Data received")
+        # print_packet(TCPPacket.from_bytes(res))
+        return TCPPacket.from_bytes(res)
+
+    def __wait_for_data(self):
+        while True:
+            try:
+                data, address = self.recvfrom(SENT_SIZE)
+                pkt = TCPPacket.from_bytes(data)
+                if pkt.packet_type() == "DATA":
+                    self.port = address[1]
+                    return data
+            except socket.timeout:
+                print("Timeout waiting for DATA")
 
 
 
     def recvfrom(self, size):
         data, address = self.socket.recvfrom(size)
         pkt = TCPPacket.from_bytes(data)
-        print_packet(pkt)
+        # print_packet(pkt)
+        # maybe return pk here
         return data, address
 
     def sendto(self, data, address):
         self.socket.sendto(data, address)
 
     def close(self):
+        self.status = 1
         self.socket.close()
 
     def connect(self,address):
@@ -163,6 +175,7 @@ class TCPOverUDPSocket:
                     return
             except socket.timeout:
                 print("Timeout waiting for SYN")
+                time.sleep(1)
 
     def __send_syn_ack(self):
         syn_ack = TCPPacket()

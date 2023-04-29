@@ -16,8 +16,9 @@ class TCPPacket:
     HIGHEST_STARTING_SEQ = 2**32 - 1
     def __init__(self): 
         global cnt
-        self.seq = TCPPacket.gen_starting_seq_num()
-        self.ack = TCPPacket.gen_starting_seq_num()
+        self.seq = TCPPacket.generate_starting_seq_num()
+        self.ack = 0
+        # self.ack = TCPPacket.generate_starting_seq_num()
         self.data_offset = 0
         self.reserved_field = 0
         self.flag_ns = 0
@@ -79,7 +80,7 @@ class TCPPacket:
             self.flag_fin = 0
 
     @staticmethod
-    def gen_starting_seq_num():
+    def generate_starting_seq_num():
         return random.randint(TCPPacket.SMALLEST_STARTING_SEQ, TCPPacket.HIGHEST_STARTING_SEQ)
     @staticmethod
     def from_bytes(byte_string) -> 'TCPPacket':

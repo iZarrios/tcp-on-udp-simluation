@@ -1,10 +1,9 @@
 import socket
 from dotenv import load_dotenv
-import threading
 import os
 import pickle as pkl
-from tcp_packet import TCPPacket
-from udp_tcp_socket import TCPOverUDPSocket
+# from tcp_packet import TCPPacket
+from udp_tcp_socket import TCPOverUDPSocket, print_packet
 
 load_dotenv()
 port = int(os.getenv("PORT",8080))
@@ -32,18 +31,21 @@ def handle_client(conn, addr):
     print(f"[NEW CONNECTION] {addr} connected.")
     connected = True
     while connected:
+        if conn.status == 1:
+            print("Connection closed")
+            break
         # recieve message from client
         try:
-            data = conn.recvfrom(1024)
+            # data = conn.recvfcom(1024)
+            data = conn.rcv()
             if not data:
                 break
-            print(pkl.loads(data[0]))
+            print_packet(data)
         except socket.timeout:
             print("Timeout")
+            conn.close()
+            break
 
 while True:
     addr, _= udp_socket.accept()
-    thread = threading.Thread(target=handle_client, args=(udp_socket, addr))
-    thread.start()
-    while udp_socket.status == 0:
-        pass
+    handle_client(udp_socket, addr)

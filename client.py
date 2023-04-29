@@ -26,12 +26,15 @@ udp_socket = TCPOverUDPSocket()
 udp_socket.settimeout(timeout)
 udp_socket.connect(ADDR)
 
-while True:
+flag = True
+while flag:
     try:
+        flag = False
 
         pkt = TCPPacket()
         # send a message to the server
         message = "hahahahhahahahahaa"
+        print('Sending message:', message)
 
         pkt.data = message
         pkt_pk= pickle.dumps(pkt)
@@ -47,3 +50,4 @@ while True:
 
 # close the socket
 udp_socket.close()
+print("Client closed")
