@@ -1,6 +1,6 @@
 import socket
 import random
-import pickle
+import pickle as pkl
 import threading
 from tcp_packet import TCPPacket
 
@@ -74,6 +74,16 @@ class TCPOverUDPSocket:
         #             return
         # self.socket.close()
         # exit(1)
+    def rcv(self):
+        # wait data
+        # res = self.__wait_for_data()
+        # # if data not received, resend ack
+        #     self.__send_ack()
+        #     res = self.__wait_for_data()
+        #             return
+        # self.socket.close()
+        # exit(1)
+        pass
 
 
 
