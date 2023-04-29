@@ -50,7 +50,7 @@ class TCPOverUDPSocket:
         self.port = None  # Port of the peer
 
     def __repr__(self):
-        return "TCP()"
+        return "TCPOverUDPSocket()"
 
     def __str__(self):
         return f"Connection status: {self.status}\nSocket: {self.socket}\nAddress: {self.address}\nPort: {self.port} \
@@ -65,43 +65,79 @@ class TCPOverUDPSocket:
         self.socket.settimeout(timeout)
 
     def send(self, data):
-        self.socket.sendto(data, (self.address, self.port))
+        # divide data into packets
+        segments = self.__divide_data(data)
+        # send packets
+        for segment in segments :
+            pkt = TCPPacket()
+            pkt.set_data(segment)
+            self.send_pkt(pkt)
 
+
+    def __divide_data(self, data):
+        res = []
+        # divide data into packets
+        for i in range(0, len(data), DATA_DIVIDE_LENGTH):
+            res.append(data[i:i + DATA_DIVIDE_LENGTH])
+        return res 
+
+    def send_pkt(self, pkt):
+        self.socket.sendto(pkt.to_bytes(pkt), (self.address, self.port))
         # wait ack
-        # res = self.__wait_for_ack(handshake=False)
-        # # if ack not received, resend packet
-        #     self.socket.sendto(data, (self.address, self.port))
-        #     res = self.__wait_for_ack(handshake=False)
-        #             return
-        # self.socket.close()
-        # exit(1)
-    def rcv(self):
-        # wait data
-        res = self.__wait_for_data()
-        # if data received, send ack
-        self.__send_ack()
-        print("Data received")
-        # print_packet(TCPPacket.from_bytes(res))
-        return TCPPacket.from_bytes(res)
+        _ = self.__wait_for_ack_data()
+        print("Ack received")
 
-    def __wait_for_data(self):
+    def __wait_for_ack_data(self):
+        cnt = 0
         while True:
             try:
                 data, address = self.recvfrom(SENT_SIZE)
                 pkt = TCPPacket.from_bytes(data)
-                if pkt.packet_type() == "DATA":
+                if pkt.packet_type() == "ACK":
                     self.port = address[1]
                     return data
             except socket.timeout:
+                cnt+=1
+                print("Timeout waiting for ack in send")
+                if cnt == 3:
+                    print("Connection closed")
+                    exit(1)
+
+    def rcv(self):
+        # wait data
+        res = self.__wait_for_data()
+        if res == "DONE":
+            return None
+        pkt = TCPPacket.from_bytes(res)
+
+        # if data received, send ack
+
+        self.__send_ack()
+        print("Data received")
+        # print_packet(TCPPacket.from_bytes(res))
+        return pkt
+
+    def __wait_for_data(self):
+        cnt = 0
+        while True:
+            try:
+                data, address = self.recvfrom(SENT_SIZE)
+                pkt = TCPPacket.from_bytes(data)
+                if pkt.packet_type() == "DATA" and pkt.verify_checksum():
+                    self.port = address[1]
+                    return data
+            except socket.timeout:
+                cnt+=1
                 print("Timeout waiting for DATA")
+                if cnt == 3:
+                    print("Connection closed cuz no data")
+                    return "DONE"
 
 
 
     def recvfrom(self, size):
         data, address = self.socket.recvfrom(size)
         pkt = TCPPacket.from_bytes(data)
-        # print_packet(pkt)
-        # maybe return pk here
         return data, address
 
     def sendto(self, data, address):
@@ -149,6 +185,7 @@ class TCPOverUDPSocket:
             except socket.timeout:
                 print("Timeout waiting for SYN-ACK")
                 exit(1)
+
     def listen(self):
         pass
 
@@ -183,7 +220,7 @@ class TCPOverUDPSocket:
         syn_ack.set_flags(syn=True, ack=True)
         self.sendto(syn_ack.to_bytes(syn_ack), (self.address, self.port))
 
-    def __wait_for_ack(self,handshake=True):
+    def __wait_for_ack(self):
         while True:
             try:
                 data, _= self.recvfrom(SENT_SIZE)
@@ -192,7 +229,5 @@ class TCPOverUDPSocket:
                 if pkt.packet_type() == "ACK":
                     return "YES"
             except socket.timeout:
-                if not handshake:
-                    return "NO"
                 print("Timeout waiting for ACK")
                 exit(1)
