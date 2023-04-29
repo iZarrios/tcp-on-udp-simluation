@@ -36,7 +36,6 @@ def handle_client(conn, addr):
             break
         # recieve message from client
         try:
-            # data = conn.recvfcom(1024)
             data = conn.rcv()
             if not data:
                 break
