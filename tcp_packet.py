@@ -36,18 +36,22 @@ class TCPPacket:
         self.options = 0
         self.padding = 0
         self.data = ''
+        self.checksum = 0
 
     def __repr__(self):
         return "TCPpacket()"
 
     def __str__(self):
-        return f"SEQ Number: {self.seq}, ACK Number: {self.ack}, ACK: {self.flag_ack}, SYN: {self.flag_syn}, FIN: {self.flag_fin}, TYPE: {self.packet_type()}, DATA: {self.data}"
+        return f"SEQ Number: {self.seq}, ACK Number: {self.ack}, ACK: {self.flag_ack}, SYN: {self.flag_syn}, FIN: {self.flag_fin}, TYPE: {self.packet_type()}, DATA: {self.data}, checksum: {self.checksum}"
 
     def __cmp__(self, other):
         # Fix 
         if self.seq == other.seq:
             return 0
         return 1
+    def set_data(self, data):
+        self.data = data
+        self.checksum = self.__calc_checksum()
 
     def packet_type(self):
         packet_type = ""
@@ -79,6 +83,29 @@ class TCPPacket:
         else:
             self.flag_fin = 0
 
+    def __calc_checksum(self):
+        # Get the message as bytes from string
+        message = pkl.dumps(self.data)
+        # If the message length is odd, add a zero byte at the end
+        if len(message) % 2 == 1:
+            message += b'\x00'
+
+        # Split the message into 16-bit words and add them together
+        words = [int.from_bytes(message[i:i+2], byteorder='big') for i in range(0, len(message), 2)]
+        total = sum(words)
+
+        # Fold the total into 16 bits by adding the carry to the least significant 16 bits
+        while total >> 16:
+            total = (total & 0xFFFF) + (total >> 16)
+
+        # Take the one's complement of the result
+        result = (~total) & 0xFFFF
+
+        # Return the checksum as a 16-bit integer
+        return result
+
+    def verify_checksum(self):
+        return self.checksum == self.__calc_checksum()
     @staticmethod
     def generate_starting_seq_num():
         return random.randint(TCPPacket.SMALLEST_STARTING_SEQ, TCPPacket.HIGHEST_STARTING_SEQ)
