@@ -1,5 +1,5 @@
 import random
-from pickle import loads, dumps
+import pickle as pkl
 
 
 DATA_DIVIDE_LENGTH = 1024
@@ -10,21 +10,14 @@ LAST_CONNECTION = -1
 FIRST = 0
 
 
-cnt = 0
-import threading
-lock = threading.Lock()
 
 class TCPPacket:
     SMALLEST_STARTING_SEQ = 0
     HIGHEST_STARTING_SEQ = 2**32 - 1
     def __init__(self): 
         global cnt
-        # self.seq = TCPPacket.gen_starting_seq_num()
-        lock.acquire()
-        self.seq = cnt
-        self.ack = cnt
-        cnt +=1
-        lock.release()
+        self.seq = TCPPacket.gen_starting_seq_num()
+        self.ack = TCPPacket.gen_starting_seq_num()
         self.data_offset = 0
         self.reserved_field = 0
         self.flag_ns = 0
@@ -90,7 +83,7 @@ class TCPPacket:
         return random.randint(TCPPacket.SMALLEST_STARTING_SEQ, TCPPacket.HIGHEST_STARTING_SEQ)
     @staticmethod
     def from_bytes(byte_string) -> 'TCPPacket':
-        return loads(byte_string)
+        return pkl.loads(byte_string)
     @staticmethod
     def to_bytes(packet) -> bytes:
-        return dumps(packet)
+        return pkl.dumps(packet)
