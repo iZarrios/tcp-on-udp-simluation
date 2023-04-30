@@ -40,13 +40,6 @@ class TCPOverUDPSocket:
         self.socket.setsockopt(
             socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Reuse address
 
-        self.connections = {}
-        self.connection_queue = []
-        self.connection_lock = threading.Lock()
-        self.queue_lock = threading.Lock()
-        # each condition will have a dictionary of an address and it's corresponding packet.
-        self.packets_received = {"SYN": {}, "ACK": {},
-                                 "SYN-ACK": {}, "DATA or FIN": {}, "FIN-ACK": {}}
 
         self.address = None  # Address of the peer
         self.port = None  # Port of the peer
@@ -57,8 +50,7 @@ class TCPOverUDPSocket:
         return "TCPOverUDPSocket()"
 
     def __str__(self):
-        return f"Connection status: {self.status}\nSocket: {self.socket}\nAddress: {self.address}\nPort: {self.port} \
-        \nConnections: {self.connections}\nConnection queue: {self.connection_queue}"
+        return f"Connection status: {self.status}\nSocket: {self.socket}\nAddress: {self.address}\nPort: {self.port}"
 
     # set lossy
     def set_lossy(self, lossy):
@@ -82,6 +74,16 @@ class TCPOverUDPSocket:
         return random.randint(0, 2)
 
     def send(self, data):
+        '''
+        Sends a sequence of data over the network by dividing it into packets and
+        sending each packet separately.
+
+        Args:
+            data: The data to be sent.
+
+        Returns:
+            None
+        '''
         # divide data into packets
         segments = self.__divide_data(data)
         # send packets
@@ -90,12 +92,24 @@ class TCPOverUDPSocket:
             pkt.set_data(segment)
             self.send_pkt(pkt)
 
+
     def __divide_data(self, data):
-        res = []
+        """
+        Divide a given data sequence into smaller packets of a fixed length.
+
+        Args:
+            data: A sequence of data to be divided into smaller packets.
+
+        Returns:
+            A list of segments, where each segment is a packet of length DATA_DIVIDE_LENGTH
+            (except possibly the last one, which may be shorter).
+
+        """
+        segments = []
         # divide data into packets
         for i in range(0, len(data), DATA_DIVIDE_LENGTH):
-            res.append(data[i:i + DATA_DIVIDE_LENGTH])
-        return res
+            segments.append(data[i:i + DATA_DIVIDE_LENGTH])
+        return segments
 
     def send_pkt(self, pkt):
         return self.__send_normal_pkt(pkt) if not self.lossy else self.__send_lossy_pkt(pkt)
