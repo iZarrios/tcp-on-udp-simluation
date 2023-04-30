@@ -84,8 +84,9 @@ class TCPOverUDPSocket:
     def send_pkt(self, pkt):
         self.socket.sendto(pkt.to_bytes(pkt), (self.address, self.port))
         # wait ack
-        _ = self.__wait_for_ack_data()
-        print("Ack received")
+        data = self.__wait_for_ack_data()
+        print_packet(TCPPacket.from_bytes(data))
+        # print("Ack received")
 
     def __wait_for_ack_data(self):
         cnt = 0
@@ -113,8 +114,9 @@ class TCPOverUDPSocket:
         # if data received, send ack
 
         self.__send_ack()
-        print("Data received")
-        # print_packet(TCPPacket.from_bytes(res))
+        # print("Data received")
+        # print_packet(pkt)
+        # print(pkt.data)
         return pkt
 
     def __wait_for_data(self):
