@@ -6,7 +6,6 @@ import threading
 from tcp_packet import TCPPacket
 
 
-
 DATA_DIVIDE_LENGTH = 1024
 TCP_PACKET_SIZE = 32
 DATA_LENGTH = DATA_DIVIDE_LENGTH
@@ -16,6 +15,7 @@ FIRST = 0
 
 MIN_SEQUENCE_NUMBER = 0
 MAX_SEQUENCE_NUMBER = 2**32 - 1
+
 
 def print_packet(packet):
     packet_type = packet.packet_type()
@@ -32,22 +32,26 @@ def print_packet(packet):
     else:
         print(str(packet))  # default color
 
+
 class TCPOverUDPSocket:
     def __init__(self) -> None:
         self.status = 1  # 1 = open , 0 = closed
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Reuse address
+        self.socket.setsockopt(
+            socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Reuse address
 
         self.connections = {}
         self.connection_queue = []
         self.connection_lock = threading.Lock()
         self.queue_lock = threading.Lock()
         # each condition will have a dictionary of an address and it's corresponding packet.
-        self.packets_received = {"SYN": {}, "ACK": {}, "SYN-ACK": {}, "DATA or FIN": {}, "FIN-ACK": {}}
-
+        self.packets_received = {"SYN": {}, "ACK": {},
+                                 "SYN-ACK": {}, "DATA or FIN": {}, "FIN-ACK": {}}
 
         self.address = None  # Address of the peer
         self.port = None  # Port of the peer
+
+        self.lossy = False
 
     def __repr__(self):
         return "TCPOverUDPSocket()"
@@ -55,6 +59,10 @@ class TCPOverUDPSocket:
     def __str__(self):
         return f"Connection status: {self.status}\nSocket: {self.socket}\nAddress: {self.address}\nPort: {self.port} \
         \nConnections: {self.connections}\nConnection queue: {self.connection_queue}"
+
+    # set lossy
+    def set_lossy(self, lossy):
+        self.lossy = lossy
 
     def bind(self, address):
         self.address = address[0]
@@ -64,30 +72,56 @@ class TCPOverUDPSocket:
     def settimeout(self, timeout):
         self.socket.settimeout(timeout)
 
+    # generate random variable 0 or 1 or 2
+    def __generate_random(self):
+        # Generate a random seed from the current system time
+        current_time = time.time()
+        # Set the seed
+        random.seed(int(current_time*1000))
+        # Generate a random number between 0 and 1
+        return random.randint(0, 2)
+
     def send(self, data):
         # divide data into packets
         segments = self.__divide_data(data)
         # send packets
-        for segment in segments :
+        for segment in segments:
             pkt = TCPPacket()
             pkt.set_data(segment)
             self.send_pkt(pkt)
-
 
     def __divide_data(self, data):
         res = []
         # divide data into packets
         for i in range(0, len(data), DATA_DIVIDE_LENGTH):
             res.append(data[i:i + DATA_DIVIDE_LENGTH])
-        return res 
+        return res
 
     def send_pkt(self, pkt):
+        return self.__send_normal_pkt(pkt) if not self.lossy else self.__send_lossy_pkt(pkt)
+
+    def __send_normal_pkt(self, pkt):
         self.socket.sendto(pkt.to_bytes(pkt), (self.address, self.port))
         # wait ack
-        _ = self.__wait_for_ack_data()
+        _ = self.__wait_for_ack_data(pkt)
         print("Ack received")
 
-    def __wait_for_ack_data(self):
+    def __send_lossy_pkt(self, pkt):
+        # generate random number
+        if self.__generate_random() == 0:
+            self.socket.sendto(pkt.to_bytes(pkt), (self.address, self.port))
+        elif self.__generate_random() == 1:
+            print("Packet lost")
+        else:  # corrupt packet
+            print("Packet corrupted")
+            pkt.set_checksum(0)
+            self.socket.sendto(pkt.to_bytes(pkt), (self.address, self.port))
+        # wait ack
+        return_val = self.__wait_for_ack_data(pkt)
+        if (return_val != None):
+            print("Ack received")
+
+    def __wait_for_ack_data(self, original_pkt):
         cnt = 0
         while True:
             try:
@@ -97,23 +131,23 @@ class TCPOverUDPSocket:
                     self.port = address[1]
                     return data
             except socket.timeout:
-                cnt+=1
-                print("Timeout waiting for ack in send")
-                if cnt == 3:
-                    print("Connection closed")
-                    exit(1)
+                print("Timeout waiting for DATA")
+                original_pkt.set_data(original_pkt.data)
+                self.send_pkt(original_pkt)
+                return None
+
+     # Client side?
 
     def rcv(self):
         # wait data
         res = None
-        while res == None: 
+        while res == None:
             res = self.__wait_for_data()
         pkt = TCPPacket.from_bytes(res)
 
         # if data received, send ack
 
         self.__send_ack()
-        print("Data received")
         # print_packet(TCPPacket.from_bytes(res))
         return pkt
 
@@ -131,13 +165,9 @@ class TCPOverUDPSocket:
                     self.port = address[1]
                     self.__send_fin_ack()
                     return data
-            except socket.timeout:
-                cnt+=1
-                print("Timeout waiting for DATA")
-                if cnt == 3:
-                    # return pkt with data = "DONE"
-                    return TCPPacket().to_bytes(TCPPacket().set_data("DONE"))
 
+            except socket.timeout:
+                print("Timeout waiting for DATA")
 
     def __send_fin_ack(self):
         pkt = TCPPacket()
@@ -145,7 +175,6 @@ class TCPOverUDPSocket:
 
         self.send_pkt(pkt)
         self.status = 1
-
 
     def recvfrom(self, size):
         data, address = self.socket.recvfrom(size)
@@ -164,6 +193,7 @@ class TCPOverUDPSocket:
         self.__send_ack()
         self.status = 1
         self.socket.close()
+
     def __wait_for_fin_ack(self):
         cnt = 0
         while True:
@@ -174,11 +204,12 @@ class TCPOverUDPSocket:
                     self.port = address[1]
                     return data
             except socket.timeout:
-                cnt+=1
+                cnt += 1
                 print("Timeout waiting for FIN-ACK")
                 if cnt == 3:
                     print("Connection closed cuz no FIN-ACK")
                     exit(1)
+
     def __send_fin(self):
         fin = TCPPacket()
         fin.data = "FIN"
@@ -186,7 +217,7 @@ class TCPOverUDPSocket:
         print("Sending FIN")
         self.sendto(fin.to_bytes(fin), (self.address, self.port))
 
-    def connect(self,address):
+    def connect(self, address):
         # Send SYN
         self.address = address[0]
         self.port = address[1]
@@ -197,7 +228,6 @@ class TCPOverUDPSocket:
         self.__send_ack()
         # # Connection established
         self.status = 0
-
 
     def __send_syn(self):
         global cnt
@@ -262,7 +292,7 @@ class TCPOverUDPSocket:
     def __wait_for_ack(self):
         while True:
             try:
-                data, _= self.recvfrom(SENT_SIZE)
+                data, _ = self.recvfrom(SENT_SIZE)
                 pkt = TCPPacket.from_bytes(data)
                 print_packet(pkt)
                 if pkt.packet_type() == "ACK":

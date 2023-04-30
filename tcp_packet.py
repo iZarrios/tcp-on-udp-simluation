@@ -5,16 +5,17 @@ import pickle as pkl
 DATA_DIVIDE_LENGTH = 1024
 TCP_PACKET_SIZE = 32
 DATA_LENGTH = DATA_DIVIDE_LENGTH
-SENT_SIZE = TCP_PACKET_SIZE + DATA_LENGTH + 5000  # Pickled objects take a lot of space
+SENT_SIZE = TCP_PACKET_SIZE + DATA_LENGTH + \
+    5000  # Pickled objects take a lot of space
 LAST_CONNECTION = -1
 FIRST = 0
-
 
 
 class TCPPacket:
     SMALLEST_STARTING_SEQ = 0
     HIGHEST_STARTING_SEQ = 2**32 - 1
-    def __init__(self): 
+
+    def __init__(self):
         global cnt
         self.seq = TCPPacket.generate_starting_seq_num()
         self.ack = 0
@@ -45,13 +46,17 @@ class TCPPacket:
         return f"SEQ Number: {self.seq}, ACK Number: {self.ack}, ACK: {self.flag_ack}, SYN: {self.flag_syn}, FIN: {self.flag_fin}, TYPE: {self.packet_type()}, DATA: {self.data}, checksum: {self.checksum}"
 
     def __cmp__(self, other):
-        # Fix 
+        # Fix
         if self.seq == other.seq:
             return 0
         return 1
+
     def set_data(self, data):
         self.data = data
         self.checksum = self.__calc_checksum()
+        
+    def set_checksum(self, checksum):
+        self.checksum = checksum
 
     def packet_type(self):
         packet_type = ""
@@ -91,7 +96,8 @@ class TCPPacket:
             message += b'\x00'
 
         # Split the message into 16-bit words and add them together
-        words = [int.from_bytes(message[i:i+2], byteorder='big') for i in range(0, len(message), 2)]
+        words = [int.from_bytes(message[i:i+2], byteorder='big')
+                 for i in range(0, len(message), 2)]
         total = sum(words)
 
         # Fold the total into 16 bits by adding the carry to the least significant 16 bits
@@ -106,12 +112,15 @@ class TCPPacket:
 
     def verify_checksum(self):
         return self.checksum == self.__calc_checksum()
+
     @staticmethod
     def generate_starting_seq_num():
         return random.randint(TCPPacket.SMALLEST_STARTING_SEQ, TCPPacket.HIGHEST_STARTING_SEQ)
+
     @staticmethod
     def from_bytes(byte_string) -> 'TCPPacket':
         return pkl.loads(byte_string)
+
     @staticmethod
     def to_bytes(packet) -> bytes:
         return pkl.dumps(packet)
