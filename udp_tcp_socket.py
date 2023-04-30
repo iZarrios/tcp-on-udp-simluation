@@ -105,9 +105,9 @@ class TCPOverUDPSocket:
 
     def rcv(self):
         # wait data
-        res = self.__wait_for_data()
-        if res == "DONE":
-            return None
+        res = None
+        while res == None: 
+            res = self.__wait_for_data()
         pkt = TCPPacket.from_bytes(res)
 
         # if data received, send ack
@@ -126,26 +126,65 @@ class TCPOverUDPSocket:
                 if pkt.packet_type() == "DATA" and pkt.verify_checksum():
                     self.port = address[1]
                     return data
+                # if pkt of type FIN send find_ack
+                elif pkt.packet_type() == "FIN":
+                    self.port = address[1]
+                    self.__send_fin_ack()
+                    return data
             except socket.timeout:
                 cnt+=1
                 print("Timeout waiting for DATA")
                 if cnt == 3:
-                    print("Connection closed cuz no data")
-                    return "DONE"
+                    # return pkt with data = "DONE"
+                    return TCPPacket().to_bytes(TCPPacket().set_data("DONE"))
 
+
+    def __send_fin_ack(self):
+        pkt = TCPPacket()
+        pkt.set_flags(ack=True, fin=True)
+
+        self.send_pkt(pkt)
+        self.status = 1
 
 
     def recvfrom(self, size):
         data, address = self.socket.recvfrom(size)
-        pkt = TCPPacket.from_bytes(data)
+        # pkt = TCPPacket.from_bytes(data)
         return data, address
 
     def sendto(self, data, address):
         self.socket.sendto(data, address)
 
     def close(self):
+        # send FIN
+        self.__send_fin()
+        # wait for FIN-ACK
+        self.__wait_for_fin_ack()
+        # send ACK
+        self.__send_ack()
         self.status = 1
         self.socket.close()
+    def __wait_for_fin_ack(self):
+        cnt = 0
+        while True:
+            try:
+                data, address = self.recvfrom(SENT_SIZE)
+                pkt = TCPPacket.from_bytes(data)
+                if pkt.packet_type() == "FIN-ACK":
+                    self.port = address[1]
+                    return data
+            except socket.timeout:
+                cnt+=1
+                print("Timeout waiting for FIN-ACK")
+                if cnt == 3:
+                    print("Connection closed cuz no FIN-ACK")
+                    exit(1)
+    def __send_fin(self):
+        fin = TCPPacket()
+        fin.data = "FIN"
+        fin.set_flags(fin=True)
+        print("Sending FIN")
+        self.sendto(fin.to_bytes(fin), (self.address, self.port))
 
     def connect(self,address):
         # Send SYN

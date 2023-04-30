@@ -29,8 +29,7 @@ print('Server is listening on', ADDR)
 
 def handle_client(conn, addr):
     print(f"[NEW CONNECTION] {addr} connected.")
-    connected = True
-    while connected:
+    while True:
         if conn.status == 1:
             print("Connection closed")
             break
@@ -38,7 +37,8 @@ def handle_client(conn, addr):
         try:
             data = conn.rcv()
             if not data:
-                break
+                continue
+            # packet_type = packet.packet_type()
             print_packet(data)
         except socket.timeout:
             print("Timeout")

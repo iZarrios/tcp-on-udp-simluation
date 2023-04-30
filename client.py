@@ -44,5 +44,6 @@ while flag:
         pass
 
 # close the socket
+print("Closing client")
 udp_socket.close()
 print("Client closed")
