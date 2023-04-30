@@ -1,4 +1,22 @@
-from ParserHttp import HttpRequest, HttpResponse
+import socket
+from dotenv import load_dotenv
+import os
+from tcp_packet import TCPPacket
+from udp_tcp_socket import TCPOverUDPSocket
+from ParserHttp import *
+
+
+
+
+load_dotenv()
+port = int(os.getenv("PORT",8080))
+address= os.getenv("ADDRESS","localhost")
+timeout = int(os.getenv("TIMEOUT",1))
+
+ADDR=(address,port)
+
+
+
 
 req1="""GET /index.html HTTP/1.1\r\n
 Host: www.example.com\r\n
@@ -28,6 +46,14 @@ Accept-Encoding: gzip, deflate\r\n
 Connection: keep-alive\r\n
 \r\n"""
 
+
+req4 = """POST /users HTTP/1.1\r\n\
+Host: example.com\r\n\
+Content-Type: application/x-www-form-urlencoded\r\n\
+Content-Length: 27\r\n\
+Authorization: Bearer xxxxxxxx\r\n\
+\r\n\
+first_name=john&last_name=doe"""
 
 response1="""
 HTTP/1.1 200 OK\r\n
@@ -62,31 +88,33 @@ Date: Thu, 19 Jun 2008 19:29:07 GMT\r\n
 \r\n"""
 
 
-# Example usage
-request_str = "GET / HTTP/1.1\r\nHost: www.google.com\r\n\r\n"
-response_str = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Length: 123\r\n\r\n<html><body>Hello, world!</body></html>"
+## Example usage
+# request_str = "GET / HTTP/1.1\r\nHost: www.google.com\r\n\r\n"
+# response_str = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Length: 123\r\n\r\n<html><body>Hello, world!</body></html>"
+#
+# http_request = HttpRequest(request_str)
+# http_response = HttpResponse(response_str)
 
-http_request = HttpRequest(request_str)
-http_response = HttpResponse(response_str)
+udp_socket = TCPOverUDPSocket()
+udp_socket.settimeout(timeout)
+udp_socket.connect(ADDR)
 
-print("Request:")
-print(f"Method: {http_request.method}")
-print(f"URL: {http_request.url}")
-print(f"HTTP Version: {http_request.http_version}")
-print("Headers:")
-for key, value in http_request.headers.items():
-    print(f"{key}: {value}")
+flag = True
+while flag:
+    try:
+        flag = False
 
-print("\nResponse:")
-print(f"HTTP Version: {http_response.http_version}")
-print(f"Status Code: {http_response.status_code}")
-print(f"Reason Phrase: {http_response.reason_phrase}")
-print("Headers:")
-for key, value in http_response.headers.items():
-    print(f"{key}: {value}")
-print(f"Body: {http_response.body}")
+        request = HttpRequest(req4)
+        message = str(request)
 
+        udp_socket.send(message)
+        print("Message sent")
+        print(message)
 
-print("\n\nSTARTING OVER\n\n")
-print(http_response)
+    except socket.timeout:
+        pass
 
+# close the socket
+print("Closing client")
+udp_socket.close()
+print("Client closed")

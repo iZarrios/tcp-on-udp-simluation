@@ -1,4 +1,16 @@
-from ParserHttp import HttpRequest, HttpResponse
+import socket
+from dotenv import load_dotenv
+import os
+import pickle as pkl
+from ParserHttp import *
+
+# from tcp_packet import TCPPacket
+from udp_tcp_socket import TCPOverUDPSocket, print_packet
+
+load_dotenv()
+port = int(os.getenv("PORT",8080))
+address= os.getenv("ADDRESS","localhost")
+timeout = int(os.getenv("TIMEOUT",1))
 
 req1="""GET /index.html HTTP/1.1\r\n
 Host: www.example.com\r\n
@@ -19,6 +31,7 @@ Authorization: Bearer xxxxxxxx\r\n
 \r\n"""
 
 
+
 req3="""GET /index.html HTTP/1.1\r\n
 Host: www.example.com\r\n
 User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:58.0) Gecko/20100101 Firefox/58.0\r\n
@@ -28,6 +41,13 @@ Accept-Encoding: gzip, deflate\r\n
 Connection: keep-alive\r\n
 \r\n"""
 
+req4 = """POST /users HTTP/1.1\r\n\
+Host: example.com\r\n\
+Content-Type: application/x-www-form-urlencoded\r\n\
+Content-Length: 27\r\n\
+Authorization: Bearer xxxxxxxx\r\n\
+\r\n\
+first_name=john&last_name=doe"""
 
 response1="""
 HTTP/1.1 200 OK\r\n
@@ -61,32 +81,46 @@ ETag: “04f97692cbd1:377”\r\n
 Date: Thu, 19 Jun 2008 19:29:07 GMT\r\n
 \r\n"""
 
+ADDR=(address,port)
 
-# Example usage
-request_str = "GET / HTTP/1.1\r\nHost: www.google.com\r\n\r\n"
-response_str = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Length: 123\r\n\r\n<html><body>Hello, world!</body></html>"
+udp_socket = TCPOverUDPSocket()
 
-http_request = HttpRequest(request_str)
-http_response = HttpResponse(response_str)
+# bind the socket to a specific address and port
+udp_socket.bind(ADDR)
+udp_socket.settimeout(timeout)
 
-print("Request:")
-print(f"Method: {http_request.method}")
-print(f"URL: {http_request.url}")
-print(f"HTTP Version: {http_request.http_version}")
-print("Headers:")
-for key, value in http_request.headers.items():
-    print(f"{key}: {value}")
+udp_socket.listen()
 
-print("\nResponse:")
-print(f"HTTP Version: {http_response.http_version}")
-print(f"Status Code: {http_response.status_code}")
-print(f"Reason Phrase: {http_response.reason_phrase}")
-print("Headers:")
-for key, value in http_response.headers.items():
-    print(f"{key}: {value}")
-print(f"Body: {http_response.body}")
+print('Server is listening on', ADDR)
 
+def handle_client(conn, addr):
+    print(f"[NEW CONNECTION] {addr} connected.")
+    while True:
+        if conn.status == 1:
+            print("Connection closed")
+            break
+        # recieve message from client
+        try:
+            data = conn.rcv()
+            if not data:
+                continue
+            if data.data == "FIN":
+                continue
+            # packet_type = packet.packet_type()
+            # print_packet(data)
+            print("DATA START")
+            print(data.data)
+            print("DATA END")
+            print("-----------------------")
+            print("RESPONSE START")
+            response = HttpRequest(data.data)
+            print(response)
+            print("RESPONSE END")
+        except socket.timeout:
+            print("Timeout")
+            conn.close()
+            break
 
-print("\n\nSTARTING OVER\n\n")
-print(http_response)
-
+while True:
+    addr, _= udp_socket.accept()
+    handle_client(udp_socket, addr)
