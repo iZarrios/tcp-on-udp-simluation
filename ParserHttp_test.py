@@ -1,3 +1,5 @@
+from ParserHttp import HttpRequest, HttpResponse
+
 req1="""GET /index.html HTTP/1.1\r\n
 Host: www.example.com\r\n
 User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:58.0) Gecko/20100101 Firefox/58.0\r\n
@@ -58,3 +60,32 @@ Accept-Ranges: bytes\r\n
 ETag: “04f97692cbd1:377”\r\n
 Date: Thu, 19 Jun 2008 19:29:07 GMT\r\n
 \r\n"""
+
+
+# Example usage
+request_str = "GET / HTTP/1.1\r\nHost: www.google.com\r\n\r\n"
+response_str = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Length: 123\r\n\r\n<html><body>Hello, world!</body></html>"
+
+http_request = HttpRequest(request_str)
+http_response = HttpResponse(response_str)
+
+print("Request:")
+print(f"Method: {http_request.method}")
+print(f"URL: {http_request.url}")
+print(f"HTTP Version: {http_request.http_version}")
+print("Headers:")
+for key, value in http_request.headers.items():
+    print(f"{key}: {value}")
+
+print("\nResponse:")
+print(f"HTTP Version: {http_response.http_version}")
+print(f"Status Code: {http_response.status_code}")
+print(f"Reason Phrase: {http_response.reason_phrase}")
+print("Headers:")
+for key, value in http_response.headers.items():
+    print(f"{key}: {value}")
+print(f"Body: {http_response.body}")
+
+
+print("\n\nSTARTING OVER\n\n")
+print(http_response)

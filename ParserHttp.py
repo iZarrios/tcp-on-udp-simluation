@@ -49,26 +49,3 @@ class HttpResponse:
         headers_str = "\r\n".join([f"{key}: {value}" for key, value in self.headers.items()])
         return f"HTTP/{self.http_version} {self.status_code} {self.reason_phrase}\r\n{headers_str}\r\n\r\n{self.body}"
 
-# Example usage
-request_str = "GET / HTTP/1.1\r\nHost: www.google.com\r\n\r\n"
-response_str = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Length: 123\r\n\r\n<html><body>Hello, world!</body></html>"
-
-http_request = HttpRequest(request_str)
-http_response = HttpResponse(response_str)
-
-print("Request:")
-print(f"Method: {http_request.method}")
-print(f"URL: {http_request.url}")
-print(f"HTTP Version: {http_request.http_version}")
-print("Headers:")
-for key, value in http_request.headers.items():
-    print(f"{key}: {value}")
-
-print("\nResponse:")
-print(f"HTTP Version: {http_response.http_version}")
-print(f"Status Code: {http_response.status_code}")
-print(f"Reason Phrase: {http_response.reason_phrase}")
-print("Headers:")
-for key, value in http_response.headers.items():
-    print(f"{key}: {value}")
-print(f"Body: {http_response.body}")
