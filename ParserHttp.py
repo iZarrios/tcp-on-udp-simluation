@@ -21,6 +21,9 @@ class HttpRequest:
     def __str__(self):
         headers_str = "\r\n".join([f"{key}: {value}" for key, value in self.headers.items()])
         return f"{self.method} {self.url} HTTP/{self.http_version}\r\n{headers_str}\r\n"
+    def __len__(self):
+        return len(str(self))
+
 
 class HttpResponse:
     def __init__(self, response_str):
@@ -48,4 +51,6 @@ class HttpResponse:
     def __str__(self):
         headers_str = "\r\n".join([f"{key}: {value}" for key, value in self.headers.items()])
         return f"HTTP/{self.http_version} {self.status_code} {self.reason_phrase}\r\n{headers_str}\r\n\r\n{self.body}"
+    def __len__(self):
+        return len(str(self))
 
