@@ -1,7 +1,6 @@
 import socket
 from dotenv import load_dotenv
 import os
-import pickle as pkl
 
 # from tcp_packet import TCPPacket
 from udp_tcp_socket import TCPOverUDPSocket, print_packet

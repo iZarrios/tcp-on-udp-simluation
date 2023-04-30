@@ -1,8 +1,6 @@
 import socket
 import random
 import time
-import pickle as pkl
-import threading
 from tcp_packet import TCPPacket
 
 
@@ -117,8 +115,9 @@ class TCPOverUDPSocket:
     def __send_normal_pkt(self, pkt):
         self.socket.sendto(pkt.to_bytes(pkt), (self.address, self.port))
         # wait ack
-        _ = self.__wait_for_ack_data(pkt)
-        print("Ack received")
+        data = self.__wait_for_ack_data(pkt)
+        print_packet(TCPPacket.from_bytes(data))
+        # print("Ack received")
 
     def __send_lossy_pkt(self, pkt):
         # generate random number
@@ -133,10 +132,10 @@ class TCPOverUDPSocket:
         # wait ack
         return_val = self.__wait_for_ack_data(pkt)
         if (return_val != None):
-            print("Ack received")
+            print_packet(TCPPacket.from_bytes(return_val))
+            # print("Ack received")
 
     def __wait_for_ack_data(self, original_pkt):
-        cnt = 0
         while True:
             try:
                 data, address = self.recvfrom(SENT_SIZE)
@@ -149,8 +148,6 @@ class TCPOverUDPSocket:
                 original_pkt.set_data(original_pkt.data)
                 self.send_pkt(original_pkt)
                 return None
-
-     # Client side?
 
     def rcv(self):
         # wait data
@@ -166,7 +163,6 @@ class TCPOverUDPSocket:
         return pkt
 
     def __wait_for_data(self):
-        cnt = 0
         while True:
             try:
                 data, address = self.recvfrom(SENT_SIZE)
@@ -182,6 +178,7 @@ class TCPOverUDPSocket:
 
             except socket.timeout:
                 print("Timeout waiting for DATA")
+                pass
 
     def __send_fin_ack(self):
         pkt = TCPPacket()
@@ -252,7 +249,7 @@ class TCPOverUDPSocket:
 
     def __send_ack(self):
         ack = TCPPacket()
-        ack.data = "ACK"
+        ack.set_data("ACK")
         ack.set_flags(ack=True)
         self.sendto(ack.to_bytes(ack), (self.address, self.port))
 
@@ -290,16 +287,16 @@ class TCPOverUDPSocket:
                 data, address = self.recvfrom(SENT_SIZE)
                 pkt = TCPPacket.from_bytes(data)
                 if pkt.packet_type() == "SYN":
+                    pkt.set_data("SYN") # calculate checksum
                     print_packet(pkt)
                     self.port = address[1]
                     return
             except socket.timeout:
-                print("Timeout waiting for SYN")
                 time.sleep(1)
 
     def __send_syn_ack(self):
         syn_ack = TCPPacket()
-        syn_ack.data = "SYN-ACK"
+        syn_ack.set_data("SYN-ACK")
         syn_ack.set_flags(syn=True, ack=True)
         self.sendto(syn_ack.to_bytes(syn_ack), (self.address, self.port))
 
