@@ -13,7 +13,7 @@ git clone git@github.com:iZarrios/tcp-on-udp-simluation.git
 Go to the project directory
 
 ```bash
-cd my-project
+cd tcp-on-udp-simluation
 ```
 
 Install dependencies
