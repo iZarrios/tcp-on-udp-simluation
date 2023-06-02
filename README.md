@@ -4,25 +4,25 @@ Stimulating TCP packets using a UDP connection by extending the user space of yo
 
 ## Run Locally
 
-Clone the project
+1. Clone the project
 
 ```bash
 git clone git@github.com:iZarrios/tcp-on-udp-simluation.git
 ```
 
-Go to the project directory
+2. Go to the project directory
 
 ```bash
 cd tcp-on-udp-simluation
 ```
 
-Install dependencies
+3. Install dependencies
 
 ```bash
 pip install load_dotenv
 ```
 
-Start the server and the client
+4. Start the server and the client
 
 ```bash
 python3 server.py
@@ -36,16 +36,16 @@ python3 client.py
 
 ### Sending a message in loosy mode
 
-Client side
+### Client side
 ![App Screenshot](docs/client_loosy_msg.png)
 
-Server side
+### Server side
 ![App Screenshot](docs/server_loosy_msg_1.png)
 ![App Screenshot](docs/server_loosy_msg_2.png)
 
-### Sending a file in normal mode
+## Sending a file in normal mode
 
-Wireshark
+### Wireshark
 ![App Screenshot](docs/wireshark_normal_file.jpeg)
 
 ## Authors
