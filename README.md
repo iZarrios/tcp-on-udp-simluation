@@ -7,13 +7,13 @@ Stimulating TCP packets using a UDP connection by extending the user space of yo
 1. Clone the project
 
 ```bash
-git clone git@github.com:iZarrios/tcp-on-udp-simluation.git
+git clone git@github.com:iZarrios/tcp-on-udp-simulation.git
 ```
 
 2. Go to the project directory
 
 ```bash
-cd tcp-on-udp-simluation
+cd tcp-on-udp-simulation
 ```
 
 3. Install dependencies
